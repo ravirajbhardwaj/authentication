@@ -1,0 +1,37 @@
+{
+  "name": "authentication",
+  "version": "1.0.0",
+  "description": "authentication in node.js with mongoDB and express.js",
+  "keywords": [
+    "backend",
+    "authentication",
+    "database",
+    "node",
+    "express",
+    "mongoDB"
+  ],
+  "homepage": "https://github.com/ravirajbhardwaj/authentication#readme",
+  "bugs": {
+    "url": "https://github.com/ravirajbhardwaj/authentication/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ravirajbhardwaj/authentication.git"
+  },
+  "license": "MIT",
+  "author": "ravirajbhardwaj",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "node": "node src/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "mongoose": "^8.13.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "prettier": "^3.5.3"
+  }
+}
