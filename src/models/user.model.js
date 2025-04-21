@@ -31,6 +31,11 @@ const userSchema = new Schema(
       type: String,
       required: [true, "Password is required"],
     },
+    loginType: {
+      type: String,
+      enum: AvailableSocialLogins,
+      default: UserLoginType.EMAIL_PASSWORD,
+    },
     role: {
       type: String,
       enum: AvailableUserRoles,
