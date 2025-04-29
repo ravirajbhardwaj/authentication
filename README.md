@@ -14,7 +14,6 @@ A full-featured authentication system built using **Node.js**, **Express**, **Mo
 - 🎯 Error handling & validation
 - ⚙️ Environment-based configuration
 
-
 ---
 
 ## ⚙️ Tech Stack
@@ -38,47 +37,61 @@ cd authentication
 ```
 
 ### 2. Install dependencies
+
 ```bash
 npm install
 ```
 
 ### 3. Set up environment variables
+
 Create a .env file in the root directory:
 
 ```bash
 cp .env .env.example
 ```
+
 Development mode
+
 ```bash
 npm run dev
 ```
+
 Production mode
+
 ```bash
 npm start
 ```
+
 ---
 
 ## 📦 Postman Collection
+
 Use the Postman collection below to test all the available APIs:
 
-📥 Download Collection []()
+📥 [Download Collection]()
 
-Import the collection into Postman and set the environment variables like BASE_URL, TOKEN, etc.
+Import the collection into Postman and set the environment variables like `server_url`, etc.
 
 ## 📄 License
+
 Licensed under the MIT License
 
 ---
+
 ## 🤝 Contributing
+
 Contributions, issues, and feature requests are welcome!
 
 Feel free to:
+
 - Open issues
 - Submit pull requests
 - Suggest enhancements
 
 ---
+
 ## ✨ Author
+
 [Ravi Raj Bhardwaj](http://x.com/ravirajbhrdwaj)
 
 Built with ❤️ to simplify auth flows and speed up backend development.
