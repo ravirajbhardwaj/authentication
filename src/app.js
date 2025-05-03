@@ -16,6 +16,7 @@ app.use(express.json({ limit: "12kb" }));
 app.use(express.urlencoded({ extended: true, limit: "12kb" }));
 app.use(cookieParser());
 
+const __dirname = path.resolve();
 app.use(
   express.static(path.join(__dirname, "public"), {
     maxAge: 3600,
