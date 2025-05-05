@@ -5,12 +5,25 @@ import {
   refreshAccessToken,
   verifyEmail,
 } from "../controllers/user.controller.js";
+import {
+  userLoginValidator,
+  userRegisterValidator,
+} from "../validators/auth.validator.js";
+import { validate } from "../validators/validate.js";
+import { upload } from "../middlewares/multer.middlerware.js";
 
 const router = Router();
 
 // unsecure routes
-router.route("/register").post(registerUser);
-router.route("/login").post(loginUser);
+router
+  .route("/register")
+  .post(
+    upload.single("avatar"),
+    userRegisterValidator(),
+    validate,
+    registerUser
+  );
+router.route("/login").post(userLoginValidator(), validate, loginUser);
 router.route("/refresh-token").post(refreshAccessToken);
 router.route("/verify-email/:verificationToken").get(verifyEmail);
 

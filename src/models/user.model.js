@@ -4,6 +4,7 @@ import {
   UserRolesEnum,
   AvailableSocialLogins,
   UserLoginType,
+  USER_TEMPORARY_TOKEN_EXPIRY,
 } from "../constants.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -11,14 +12,8 @@ import crypto from "crypto";
 const userSchema = new Schema(
   {
     avatar: {
-      type: {
-        url: String,
-        localPath: String,
-      },
-      default: {
-        url: "",
-        localPath: "",
-      },
+      type: String,
+      default: "https://i.pravatar.cc/300",
     },
     fullname: {
       type: String,
