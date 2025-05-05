@@ -1,0 +1,20 @@
+version: '3.1'
+services:
+  db:
+    image: mongo
+    container_name: mongo
+    restart: always
+    environment:
+      MONGO_DB: ${DB_NAME}
+      MONGO_USER: ${DB_USER}
+      MONGO_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - ${DB_PORT}:27017 # make sure no other container uses DB_PORT
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --username $${DB_USER} --password $${DB_PASSWORD} --authenticationDatabase admin --quiet
+      interval: 10s
+      timeout: 30s
+      retries: 5
+    volumes:
+      - ./data/db:/var/lib/mongodb/data
+    attach: false
