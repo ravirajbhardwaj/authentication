@@ -12,8 +12,6 @@ const userRegisterValidator = () => {
 
     body("username")
       .trim()
-      .whitelist("a-z0-9")
-      .withMessage("Only lowercase letters and numbers are allowed")
       .notEmpty()
       .withMessage("Username is required")
       .isLowercase()
