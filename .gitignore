@@ -25,4 +25,8 @@ pids
 .env.test.local
 .env.production.local
 
+# ignore data
 db_data
+
+# ignore certs
+certs
