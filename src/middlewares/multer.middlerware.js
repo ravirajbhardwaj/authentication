@@ -7,8 +7,9 @@ const storage = multer.diskStorage({
     cb(null, "./public/temp");
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = randomBytes(16).toString("hex");
-    cb(null, file.fieldname + "-" + uniqueSuffix);
+    const uniqueSuffix = `${Date.now()}-${randomBytes(4).toString("hex")}`;
+    const prefix = "pfp";
+    cb(null, `${prefix}${file.fieldname}${uniqueSuffix}`);
   },
 });
 
