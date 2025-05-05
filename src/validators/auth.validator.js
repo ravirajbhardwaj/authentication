@@ -1,4 +1,4 @@
-import { body, param, query, cookies } from "express-validator";
+import { body } from "express-validator";
 import { AvailableUserRoles } from "../constants.js";
 
 const userRegisterValidator = () => {
@@ -69,7 +69,7 @@ const userForgotPasswordValidator = () => {
   ];
 };
 
-const userResetPasswrodValidator = () => {
+const userResetPasswordValidator = () => {
   return [body("newPassword").notEmpty().withMessage("Password is required")];
 };
 
@@ -89,6 +89,6 @@ export {
   userLoginValidator,
   userChangeCurrentPasswordValidator,
   userForgotPasswordValidator,
-  userResetPasswrodValidator,
+  userResetPasswordValidator,
   userAssignRoleValidator,
 };
