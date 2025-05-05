@@ -24,7 +24,7 @@ const userSchema = new Schema(
       type: String,
       require: true,
       trim: true,
-      maxLength: 12,
+      maxlength: [12, "Fullname cannot exceed 12 characters"],
     },
     username: {
       type: String,
@@ -32,7 +32,7 @@ const userSchema = new Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      maxLength: 12,
+      maxlength: [12, "Username cannot exceed 12 characters"],
     },
     email: {
       type: String,
@@ -44,6 +44,8 @@ const userSchema = new Schema(
     password: {
       type: String,
       required: [true, "Password is required"],
+      minlength: [4, "Password must be at least 4 characters long"],
+      maxlength: [16, "Password cannot exceed 20 characters"],
     },
     loginType: {
       type: String,
@@ -87,10 +89,6 @@ userSchema.pre("save", async function (next) {
 userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
-
-userSchema.methods.generateAccessToken = function () {};
-
-userSchema.methods.generateRefreshToken = function () {};
 
 userSchema.methods.generateTemporaryToken = function () {
   const unHashedToken = crypto.randomBytes(20).toString("hex");
