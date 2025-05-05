@@ -13,21 +13,13 @@ const uploadOnCloudinary = async localFilePath => {
   try {
     if (!localFilePath) return null;
 
-    const uploadOptions = {
-      folder: "auth/uploads",
-      use_filename: true,
-      unique_filename: true,
+    const response = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",
-      overwrite: false,
-    };
+    });
 
-    const uploadResult = await cloudinary.uploader.upload(
-      localFilePath,
-      uploadOptions
-    );
-    logger.info(`File is upload on Cloudinary: ${uploadResult.url}`);
-
-    return uploadResult;
+    logger.info(`File is upload on Cloudinary: ${response.url}`);
+    fs.unlinkSync(localFilePath)
+    return response;
   } catch (error) {
     fs.unlinkSync(localFilePath);
     throw new ApiError(400, "Failed to upload on cloudinary", error);
