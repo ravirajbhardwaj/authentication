@@ -5,14 +5,15 @@ import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { emailVerificationMailgenContent, sendMail } from "../utils/mail.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import crypto from "crypto";
 
 // process.processTicksAndRejections
 
 const registerUser = asyncHandler(async (req, res) => {
-  // get data from body
+  // Retrieves the user info from the request body.
   const { fullname, username, email, password, role } = req.body;
 
-  // validate user data
+  // Validates the user info.
   if (
     [fullname, username, email, password, role].some(
       filed => filed?.trim() === ""
@@ -25,7 +26,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Username must be lowercase");
   }
 
-  // check user already in db
+  // Check if a user with the provided username or email already exists in the database.
   const existedUser = await User.findOne({
     $or: [{ username }, { email }],
   });
@@ -34,9 +35,9 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(409, "User with username or email already exists", []);
   }
 
-  // get data from file for image
+  // Retrieves the user image from the request file.
   const avatar = req.file;
-  const avatarLocalPath = avatar.path;
+  const avatarLocalPath = avatar?.path;
 
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar File is required");
@@ -44,7 +45,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const cloudinaryAvatar = await uploadOnCloudinary(avatarLocalPath);
 
-  // if not exist then create user
+  // If the user does not exist, proceed to create a new user
   const user = await User.create({
     avatar: cloudinaryAvatar.url,
     fullname,
@@ -55,17 +56,17 @@ const registerUser = asyncHandler(async (req, res) => {
     role: role ?? UserRolesEnum.USER,
   });
 
-  // create varification token and tokenExpiry
+  // Generate a verification token and its expiry time
   const { unHashedToken, hashedToken, tokenExpiry } =
     user.generateTemporaryToken();
 
-  // saved token in db
+  // Save the generated verification token and its expiry time in the database
   user.emailVerificationToken = hashedToken;
   user.emailVerificationExpiry = tokenExpiry;
 
   await user.save({ validateBeforeSave: false });
 
-  // send email to user for varification
+  // Send a verification email to the user with a link to verify their email address
   await sendMail({
     email: user.email,
     subject: "Please verify your email",
@@ -75,7 +76,7 @@ const registerUser = asyncHandler(async (req, res) => {
     ),
   });
 
-  // exclude password and refreshToken secure fields before sending the response
+  // Exclude sensitive fields like password and refreshToken from the response for security purposes
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
   );
@@ -84,7 +85,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Something went wrong while registering the user");
   }
 
-  // send respose
+  // Respond with a success message indicating that the user was created successfully.
   return res
     .status(201)
     .json(
@@ -105,7 +106,44 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 const verifyEmail = asyncHandler(async (req, res) => {
-  // verifyEmail token
+  // Retrieves the verification token from the request parameters.
+  const verificationToken = req.params.verificationToken;
+
+  // Validates the provided token.
+  if (!verificationToken) {
+    throw new ApiError(400, "Email verification token is missing");
+  }
+
+  // Generate a hash from the token that we are receiving
+  let hashedToken = crypto
+    .createHash("sha256")
+    .update(verificationToken)
+    .digest("hex");
+
+  // Searches for a user associated with the token and its expiry date.
+  const user = await User.findOne({
+    emailVerificationToken: hashedToken,
+    emailVerificationExpiry: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    throw new ApiError(489, "Token is invalid or expired");
+  }
+
+  // If a user is found, removes the associated email token and expiry date.
+  user.emailVerificationToken = undefined;
+  user.emailVerificationExpiry = undefined;
+
+  // Marks the user's email as verified by setting `isEmailVerified` to true.
+  user.isEmailVerified = true;
+
+  // Saves the updated user information to the database.
+  await user.save({ validateBeforeSave: false });
+
+  // Respond with a success message indicating the user's email has been successfully verified
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { isEmailVerified: true }, "Email is verified"));
 });
 
 const resendEmailVerification = asyncHandler(async (req, res) => {
