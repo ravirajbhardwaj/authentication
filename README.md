@@ -36,31 +36,86 @@ git clone https://github.com/ravirajbhardwaj/authentication.git
 cd authentication
 ```
 
+---
+
 ### 2. Install dependencies
 
 ```bash
 npm install
 ```
 
+---
+
 ### 3. Set up environment variables
 
-Create a .env file in the root directory:
+This project requires setting up environment variables and generating key pairs for authentication.
+
+1. Create a `.env` file in the root directory by copying the `.env.example` file:
 
 ```bash
-cp .env .env.example
+cp .env.example .env
 ```
 
-Development mode
+2. Create a `secrets` directory at the root of the project:
 
 ```bash
-npm run dev
+mkdir secrets
 ```
 
-Production mode
+---
 
-```bash
-npm start
-```
+3. Inside the `secrets` directory, create two files:
+
+- `private.key`: This will store the private key.
+- `public.pub`: This will store the public key.
+
+4. Generate a public and private key pair. You can use the following command to generate them:
+
+   ```bash
+   openssl genrsa -out secrets/private.key 2048
+   openssl rsa -in secrets/private.key -pubout -out secrets/public.pub
+   ```
+
+---
+
+5. This section provides instructions to start the database container using Docker Compose.
+
+   Prerequisites:
+
+   - Ensure Docker and Docker Compose are installed on your system..
+
+   Steps to start the database container:
+
+   1. Open a terminal or command prompt.
+   2. Navigate to the directory containing the `compose.yml` file.
+   3. Run the following command to start the database container in detached mode:
+      ```bash
+      docker-compose up -d
+      ```
+   4. Confirm that the container is running by executing:
+      ```bash
+      docker ps
+      ```
+   5. To stop the container, use:
+      ```bash
+      docker-compose down
+      ```
+
+---
+
+6. Use the following commands to run the project:
+
+   Development mode
+
+   ```bash
+   npm run dev
+   ```
+
+   Production mode
+
+   ```bash
+   npm start
+   ```
 
 ---
 
@@ -68,7 +123,7 @@ npm start
 
 Use the Postman collection below to test all the available APIs:
 
-📥 [Download Collection]()
+📥 [Download Collection](https://www.postman.com/ravirajbhardwaaj/ravi-raj/collection/43014457-eeff1890-8ee8-4276-ad6c-4dd40176c874/?action=share&creator=43014457)
 
 Import the collection into Postman and set the environment variables like `server_url`, etc.
 
