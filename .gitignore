@@ -28,5 +28,5 @@ pids
 # ignore data
 db_data
 
-# ignore certs
-certs
+# ignore secrets
+secrets/*
