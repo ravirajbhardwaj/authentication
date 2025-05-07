@@ -27,6 +27,18 @@ A full-featured authentication system built using **Node.js**, **Express**, **Mo
 
 ---
 
+## 📚 Additional Documentation
+
+### [Authentication Guide](docs/auth.md)
+
+Detailed documentation on how the authentication system works, including middleware usage, token management, and error handling.
+
+### [Learning Resources](docs/learning.md)
+
+A curated list of resources to help you understand the technologies used in this project, such as Node.js, Express, MongoDB, and JWT.
+
+---
+
 ## 🛠️ Installation
 
 ### 1. Clone the repository
@@ -66,15 +78,35 @@ mkdir secrets
 
 3. Inside the `secrets` directory, create two files:
 
-- `private.key`: This will store the private key.
-- `public.pub`: This will store the public key.
+- `private.pem`: This will store the private key.
+- `public.pem`: This will store the public key.
 
 4. Generate a public and private key pair. You can use the following command to generate them:
+   ✅ 1. Generate Private Key (private.pem)
 
    ```bash
-   openssl genrsa -out secrets/private.key 2048
-   openssl rsa -in secrets/private.key -pubout -out secrets/public.pub
+   openssl genpkey -algorithm RSA -out private.pem -pkeyopt rsa_keygen_bits:2048
    ```
+
+   - -algorithm RSA → We are using RSA algorithm.
+   - rsa_keygen_bits:2048 → Sets key size to 2048 bits (standard secure size).
+   - This generates `private.pem`.
+   - The private key is used to sign the JWTs, ensuring that only the server can create valid tokens.
+   - The private key should be kept secret and secure, as it is used to sign the JWTs.
+
+   ✅ 2. Extract Public Key (public.pem) from Private Key
+
+   ```bash
+   openssl rsa -pubout -in private.pem -out public.pem
+   ```
+
+   - -pubout → Extracts the public key from the private key.
+   - -in private.pem → Specifies the input file (private key).
+   - -out public.pem → Specifies the output file (public key).
+   - This generates `public.pem`.
+   - The public key is derived from the private key, allowing you to share it without compromising security.
+   - The private key should be kept secret and secure, while the public key can be shared with anyone who needs to verify the JWTs signed with the private key.
+   - The public key is used to verify the JWTs, ensuring that they were signed by the server and have not been tampered with.
 
 ---
 
