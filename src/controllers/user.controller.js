@@ -241,7 +241,38 @@ const verifyEmail = asyncHandler(async (req, res) => {
 });
 
 const resendEmailVerification = asyncHandler(async (req, res) => {
-  // resendEmailVerification token
+  // A resendEmailVerification request is received from an authenticated user
+  const user = await User.findOne({ _id: req.user._id });
+
+  // Check if the user's email is already verified
+  if (user.isEmailVerified) {
+    throw new ApiResponse(400, "User email is already verified");
+  }
+
+  // Generate a verification token and its expiry time
+  const { unHashedToken, hashedToken, tokenExpiry } =
+    user.generateTemporaryToken();
+
+  // Save the generated verification token and its expiry time in the database
+  user.emailVerificationToken = hashedToken;
+  user.emailVerificationExpiry = tokenExpiry;
+
+  await user.save({ validateBeforeSave: false });
+
+  // Send a verification email to the user with a link to verify their email address
+  await sendMail({
+    email: user.email,
+    subject: "Please verify your email",
+    mailgenContent: emailVerificationMailgenContent(
+      user?.username,
+      `${req.protocol}://${req.get("host")}/api/v1/users/verify-email/${unHashedToken}`
+    ),
+  });
+
+  // Respond with a success message indicating that the verification email has been sent successfully.
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Mail has been sent to your mail ID"));
 });
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
