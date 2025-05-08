@@ -1,4 +1,8 @@
-import { UserLoginType, UserRolesEnum } from "../constants.js";
+import {
+  USER_COOKIE_TOKEN_EXPIRY,
+  UserLoginType,
+  UserRolesEnum,
+} from "../constants.js";
 import { User } from "../models/user.model.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { ApiError } from "../utils/apiError.js";
@@ -6,6 +10,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { emailVerificationMailgenContent, sendMail } from "../utils/mail.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import crypto from "crypto";
+import { generateAccessAndRefreshTokens } from "../services/token.service.js";
 
 // process.processTicksAndRejections
 
@@ -98,11 +103,100 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 const loginUser = asyncHandler(async (req, res) => {
-  // login user
+  // Retrieves the user information from the request body.
+  const { username, email, password } = req.body;
+
+  // Validates the provided user credentials.
+  if (!(username || email)) {
+    throw new ApiError(400, "Please provide either a username or email", []);
+  }
+
+  if (!password) {
+    throw new ApiError(400, "Password is required");
+  }
+
+  // Checks if the user already exists in the database.
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User does not exist");
+  }
+
+  // Compares the provided password with the hashed password stored in the database.
+  const isPassowrdMatch = await user.isPasswordCorrect(password);
+
+  if (!isPassowrdMatch) {
+    throw new ApiError(401, "Invalid user credentials");
+  }
+
+  // Generates access and refresh tokens for the authenticated user.
+  const { accessToken, refreshToken } = await generateAccessAndRefreshTokens({
+    username: user.username,
+    email: user.email,
+    role: user.role,
+  });
+
+  user.accessToken = accessToken;
+  user.refreshToken = refreshToken;
+
+  await user.save({ validateBeforeSave: false });
+
+  // Retrieves the user document, excluding sensitive fields like password and refreshToken.
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
+  );
+
+  // Sends the access token, refresh token, and user information in the response, setting the tokens as HTTP-only cookies.
+  const options = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+    maxAge: USER_COOKIE_TOKEN_EXPIRY,
+  };
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        { user: loggedInUser, accessToken, refreshToken },
+        "Logged in successfully"
+      )
+    );
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
-  // logout user
+  // A logout request is received from an authenticated user
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        refreshToken: undefined, // Clears the refresh token from the database.
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  // Clears the `accessToken` and `refreshToken` cookie using the same options.
+  const options = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+    maxAge: 0,
+  };
+
+  // Sends an appropriate response to the client.
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged out"));
 });
 
 const verifyEmail = asyncHandler(async (req, res) => {
@@ -175,7 +269,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 });
 
 const handleSocialLogin = asyncHandler(async (req, res) => {
-  // handleSocialLogin
+  const code = req.query.code;
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
