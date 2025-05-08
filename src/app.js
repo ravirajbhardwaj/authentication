@@ -29,10 +29,25 @@ app.use(
 import { errorHandler } from "./middlewares/error.middlerware.js";
 import healthCheckRouter from "./routes/healthcheck.route.js";
 import UserRouter from "./routes/user.route.js";
+import wellKnownRouter from "./routes/well-know.route.js";
+import { ApiResponse } from "./utils/apiResponse.js";
 
 app.use("/api/v1/healthcheck", healthCheckRouter);
 app.use("/api/v1/users", UserRouter);
+app.use("/.well-known", wellKnownRouter);
 
 app.use(errorHandler);
+
+app.use("/", (_, res) => {
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        "Welcome to the Authentication System API",
+        "Built with ❤️"
+      )
+    );
+});
 
 export { app };
