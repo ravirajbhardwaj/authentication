@@ -296,7 +296,17 @@ const assignRole = asyncHandler(async (req, res) => {
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
-  // getCurrentUser
+  // Retrieves the currently authenticated user's information from the request object.
+  // The `req.user` is populated by the authentication middleware after verifying the user's token.
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { user: req.user },
+        "Current user fetched successfully"
+      )
+    );
 });
 
 const handleSocialLogin = asyncHandler(async (req, res) => {
@@ -304,7 +314,35 @@ const handleSocialLogin = asyncHandler(async (req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
-  // updateUserAvatar
+  // Retrieves the user image from the request file.
+  const avatar = req.file;
+  const avatarLocalPath = avatar?.path;
+  
+  // Validate that an avatar file was uploaded
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "Avatar image is required");
+  }
+
+  // Upload the avatar image to Cloudinary and get the URL
+  const cloudinaryAvatar = await uploadOnCloudinary(avatarLocalPath);
+
+  // Find the user in the database by their ID and update the avatar field with the new Cloudinary URL
+  let updatedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        avatar: cloudinaryAvatar.url,
+      },
+    },
+    { new: true }
+  ).select(
+    "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
+  );
+
+  // Send the updated user information in the response
+  return res
+    .status(201)
+    .json(new ApiResponse(200, updatedUser, "Avatar updated successfully"));
 });
 
 export {

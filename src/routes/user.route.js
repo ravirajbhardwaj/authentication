@@ -5,6 +5,9 @@ import {
   refreshAccessToken,
   verifyEmail,
   logoutUser,
+  resendEmailVerification,
+  getCurrentUser,
+  updateUserAvatar,
 } from "../controllers/user.controller.js";
 import {
   userLoginValidator,
@@ -35,4 +38,8 @@ router
   .route("/resend-email-verification")
   .post(verifyAccessToken, resendEmailVerification);
 
+router.route("/current-user").get(verifyAccessToken, getCurrentUser);
+router
+  .route("/avatar")
+  .patch(upload.single("avatar"), verifyAccessToken, updateUserAvatar);
 export default router;
