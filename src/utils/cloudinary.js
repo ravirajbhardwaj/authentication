@@ -2,6 +2,9 @@ import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import logger from "../logger/wiston.logger.js";
 import { ApiError } from "../utils/apiError.js";
+import dotenv from "dotenv";
+
+dotenv.config()
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
