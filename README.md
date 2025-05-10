@@ -2,6 +2,11 @@
 
 A full-featured authentication system built using **Node.js**, **Express**, **MongoDB**, and **Mongoose**, with features like secure password handling, email support, file uploads, and middleware-protected routes.
 
+![GitHub Repo stars](https://img.shields.io/github/stars/ravirajbhardwaj/authentication?style=social) 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+![visulas](assets/image/diagram.png)
+
 ## 🚀 Features
 
 - 📝 User registration & login
