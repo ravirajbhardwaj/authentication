@@ -1,7 +1,6 @@
 import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { importSPKI, jwtVerify } from "jose";
-import { User } from "../models/user.model.js";
 import path from "path";
 import fs from "fs";
 
@@ -15,29 +14,23 @@ const spki = fs.readFileSync(PublicKeyPath, {
 const PublicKey = await importSPKI(spki, "RS256");
 
 const verifyAccessToken = asyncHandler(async (req, _, next) => {
-  const token =
+  const incomingAccessToken =
     req?.cookies?.accessToken ||
     req.header("Authorization")?.replace("Bearer ", "");
 
-  if (!token) {
+  if (!incomingAccessToken) {
     throw new ApiError(401, "Unauthorized request");
   }
 
   try {
-    const { payload, protectedHeader } = await jwtVerify(token, PublicKey, {
+    const { payload } = await jwtVerify(incomingAccessToken, PublicKey, {
       algorithms: ["RS256"],
       issuer: process.env.DOMAIN,
+      maxTokenAge: "15m",
+      requiredClaims: ["_id", "iss", "iat", "exp"],
     });
 
-    const user = await User.findOne({ username: payload?.username }).select(
-      "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
-    );
-
-    if (!user) {
-      throw new ApiError(401, "Invalid Access Token");
-    }
-
-    req.user = user;
+    req.user = payload;
     next();
   } catch (error) {
     console.log(error);
@@ -46,12 +39,24 @@ const verifyAccessToken = asyncHandler(async (req, _, next) => {
 });
 
 const verifyRefreshToken = asyncHandler(async (req, _, next) => {
+  const incomingRefreshToken =
+    req?.cookies?.refreshToken || req.body.refreshToken;
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "Unauthorized request");
+  }
+
   try {
-    const { payload } = await jwtVerify(token, PublicKey, {
+    const { payload } = await jwtVerify(incomingRefreshToken, PublicKey, {
       algorithms: ["RS256"],
       issuer: process.env.DOMAIN,
+      maxTokenAge: "24h",
+      requiredClaims: ["_id", "iss", "iat", "exp"],
+      clockTolerance: "5s",
     });
+
     req.user = payload;
+    next();
   } catch (error) {
     throw new ApiError(403, "Invalid or expired refresh token", error.message);
   }
