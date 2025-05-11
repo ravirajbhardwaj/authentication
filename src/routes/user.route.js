@@ -15,7 +15,10 @@ import {
 } from "../validators/auth.validator.js";
 import { validate } from "../validators/validate.js";
 import { upload } from "../middlewares/multer.middlerware.js";
-import { verifyAccessToken } from "../middlewares/auth.middlewares.js";
+import {
+  verifyAccessToken,
+  verifyRefreshToken,
+} from "../middlewares/auth.middlewares.js";
 
 const router = Router();
 
@@ -29,7 +32,6 @@ router
     registerUser
   );
 router.route("/login").post(userLoginValidator(), validate, loginUser);
-router.route("/refresh-token").post(refreshAccessToken);
 router.route("/verify-email/:verificationToken").get(verifyEmail);
 
 // secure routes
@@ -39,7 +41,9 @@ router
   .post(verifyAccessToken, resendEmailVerification);
 
 router.route("/current-user").get(verifyAccessToken, getCurrentUser);
+router.route("/refresh-token").post(verifyRefreshToken, refreshAccessToken);
 router
   .route("/avatar")
   .patch(upload.single("avatar"), verifyAccessToken, updateUserAvatar);
+
 export default router;

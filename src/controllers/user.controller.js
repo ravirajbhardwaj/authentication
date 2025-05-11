@@ -133,6 +133,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   // Generates access and refresh tokens for the authenticated user.
   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens({
+    _id: user.id,
     username: user.username,
     email: user.email,
     role: user.role,
@@ -145,7 +146,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   // Retrieves the user document, excluding sensitive fields like password and refreshToken.
   const loggedInUser = await User.findById(user._id).select(
-    "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
+    "-password -emailVerificationToken -emailVerificationExpiry"
   );
 
   // Sends the access token, refresh token, and user information in the response, setting the tokens as HTTP-only cookies.
@@ -242,7 +243,7 @@ const verifyEmail = asyncHandler(async (req, res) => {
 
 const resendEmailVerification = asyncHandler(async (req, res) => {
   // A resendEmailVerification request is received from an authenticated user
-  const user = await User.findOne({ _id: req.user._id });
+  const user = await User.findById(req.user._id);
 
   // Check if the user's email is already verified
   if (user.isEmailVerified) {
@@ -276,7 +277,44 @@ const resendEmailVerification = asyncHandler(async (req, res) => {
 });
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
-  // refreshAccessToken
+  // Retrieves the authenticated user from the request
+  const user = req.user;
+
+  // Generates new access and refresh tokens for the user
+  const { accessToken, refreshToken: newRefreshToken } =
+    await generateAccessAndRefreshTokens(user._id);
+
+  const existedUser = await User.findById(user._id).select(
+    "-password -emailVerificationToken -emailVerificationExpiry"
+  );
+
+  if (!existedUser) {
+    throw new ApiError(404, "User does not exist");
+  }
+
+  // Updates the user's refresh token in the database
+  existedUser.refreshToken = newRefreshToken;
+  await existedUser.save({ validateBeforeSave: false });
+
+  // Sends the access token, refresh token, and user information in the response, setting the tokens as HTTP-only cookies.
+  const options = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+    maxAge: USER_COOKIE_TOKEN_EXPIRY,
+  };
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", newRefreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        { accessToken, newRefreshToken },
+        "Access token refreshed"
+      )
+    );
 });
 
 const forgotPasswordRequest = asyncHandler(async (req, res) => {
@@ -292,21 +330,22 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 });
 
 const assignRole = asyncHandler(async (req, res) => {
-  // assignRole
+  // get userid from params
+  const userId = req.params;
+
+  // find
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
   // Retrieves the currently authenticated user's information from the request object.
+  const user = await User.findById(req.user._id).select(
+    "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
+  );
+
   // The `req.user` is populated by the authentication middleware after verifying the user's token.
   return res
     .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { user: req.user },
-        "Current user fetched successfully"
-      )
-    );
+    .json(new ApiResponse(200, { user }, "Current user fetched successfully"));
 });
 
 const handleSocialLogin = asyncHandler(async (req, res) => {
@@ -317,7 +356,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   // Retrieves the user image from the request file.
   const avatar = req.file;
   const avatarLocalPath = avatar?.path;
-  
+
   // Validate that an avatar file was uploaded
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar image is required");
