@@ -8,10 +8,16 @@ import {
   resendEmailVerification,
   getCurrentUser,
   updateUserAvatar,
+  changeCurrentPassword,
+  forgotPasswordRequest,
+  resetForgottenPassword,
 } from "../controllers/user.controller.js";
 import {
+  userChangeCurrentPasswordValidator,
+  userForgotPasswordValidator,
   userLoginValidator,
   userRegisterValidator,
+  userResetPasswordValidator,
 } from "../validators/auth.validator.js";
 import { validate } from "../validators/validate.js";
 import { upload } from "../middlewares/multer.middlerware.js";
@@ -44,6 +50,21 @@ router.route("/current-user").get(verifyAccessToken, getCurrentUser);
 router.route("/refresh-token").post(verifyRefreshToken, refreshAccessToken);
 router
   .route("/avatar")
-  .patch(upload.single("avatar"), verifyAccessToken, updateUserAvatar);
+  .patch(verifyAccessToken, upload.single("avatar"), updateUserAvatar);
+
+router
+  .route("/forgot-password")
+  .post(userForgotPasswordValidator(), validate, forgotPasswordRequest);
+router
+  .route("/reset-password/:resetToken")
+  .post(userResetPasswordValidator(), validate, resetForgottenPassword);
+router
+  .route("/change-password")
+  .post(
+    verifyAccessToken,
+    userChangeCurrentPasswordValidator(),
+    validate,
+    changeCurrentPassword
+  );
 
 export default router;
