@@ -430,10 +430,23 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 });
 
 const assignRole = asyncHandler(async (req, res) => {
-  // get userid from params
-  const userId = req.params;
+  // get userId from params and role from body
+  const userId = req.params.userId;
+  const { role } = req.body;
 
-  // find
+  // find user
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new ApiError(404, "User does not exist");
+  }
+
+  user.role = role;
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Role changed for the user"));
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {

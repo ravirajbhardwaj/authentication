@@ -11,8 +11,10 @@ import {
   changeCurrentPassword,
   forgotPasswordRequest,
   resetForgottenPassword,
+  assignRole,
 } from "../controllers/user.controller.js";
 import {
+  userAssignRoleValidator,
   userChangeCurrentPasswordValidator,
   userForgotPasswordValidator,
   userLoginValidator,
@@ -23,8 +25,10 @@ import { validate } from "../validators/validate.js";
 import { upload } from "../middlewares/multer.middlerware.js";
 import {
   verifyAccessToken,
+  verifyPermission,
   verifyRefreshToken,
 } from "../middlewares/auth.middlewares.js";
+import { UserRolesEnum } from "../constants.js";
 
 const router = Router();
 
@@ -65,6 +69,16 @@ router
     userChangeCurrentPasswordValidator(),
     validate,
     changeCurrentPassword
+  );
+
+router
+  .route("/assign-role/:userId")
+  .post(
+    verifyAccessToken,
+    verifyPermission(UserRolesEnum.ADMIN),
+    userAssignRoleValidator(),
+    validate,
+    assignRole
   );
 
 export default router;
