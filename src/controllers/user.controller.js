@@ -143,7 +143,6 @@ const loginUser = asyncHandler(async (req, res) => {
     role: user.role,
   });
 
-  user.accessToken = accessToken;
   user.refreshToken = refreshToken;
 
   await user.save({ validateBeforeSave: false });
