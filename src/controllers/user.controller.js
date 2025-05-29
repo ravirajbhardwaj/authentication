@@ -16,8 +16,6 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import crypto from "crypto";
 import { generateAccessAndRefreshTokens } from "../services/token.service.js";
 
-// process.processTicksAndRejections
-
 const registerUser = asyncHandler(async (req, res) => {
   // Retrieves the user info from the request body.
   const { fullname, username, email, password, role } = req.body;
@@ -126,6 +124,17 @@ const loginUser = asyncHandler(async (req, res) => {
 
   if (!user) {
     throw new ApiError(404, "User does not exist");
+  }
+
+  if (user.loginType !== UserLoginType.EMAIL) {
+    throw new ApiError(
+      400,
+      "You have previously registered using " +
+        user.loginType?.toLowerCase() +
+        ". Please use the " +
+        user.loginType?.toLowerCase() +
+        " login option to access your account."
+    );
   }
 
   // Compares the provided password with the hashed password stored in the database.
@@ -461,7 +470,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 });
 
 const handleSocialLogin = asyncHandler(async (req, res) => {
-  const code = req.query.code;
+  //
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
