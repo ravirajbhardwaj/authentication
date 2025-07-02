@@ -158,9 +158,9 @@ mkdir secrets
 
 ## 📦 Postman Collection
 
-Use the Postman collection below to test all the available APIs:
+📥 Use the Postman collection below to test all the available APIs:
 
-📥 [Download Collection](https://www.postman.com/ravirajbhardwaaj/ravi-raj/collection/43014457-eeff1890-8ee8-4276-ad6c-4dd40176c874/?action=share&creator=43014457)
+[<img src="https://run.pstmn.io/button.svg" alt="Run In Postman" style="width: 128px; height: 32px;">](https://god.gw.postman.com/run-collection/43014457-eeff1890-8ee8-4276-ad6c-4dd40176c874?action=collection%2Ffork&source=rip_markdown&collection-url=entityId%3D43014457-eeff1890-8ee8-4276-ad6c-4dd40176c874%26entityType%3Dcollection%26workspaceId%3D6dea7e89-0c3d-4835-8a6f-f905b8b26190)
 
 Import the collection into Postman and set the environment variables like `server_url`, etc.
 
