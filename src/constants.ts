@@ -7,7 +7,6 @@ export const AvailableUserRoles = Object.values(UserRolesEnum);
 
 export const UserLoginType = {
   GOOGLE: "GOOGLE",
-  GITHUB: "GITHUB",
   EMAIL: "EMAIL",
 };
 
