@@ -1,14 +1,21 @@
 import express from "express";
-import cors from "cors";
+import cors, { CorsOptions } from "cors";
 import cookieParser from "cookie-parser";
 import path from "path";
 
 const app = express();
 
-const corsOptions = {
-  origin:
-    process.env.CORS_ORIGIN === "*" ? "*" : process.env.CORS_ORIGIN?.split(","),
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+const allowsOrigins = [process.env.CLIENT_URL, "http://localhost:5173"]
+
+const corsOptions: CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowsOrigins.includes(origin)) {
+      callback(null, true)
+    } else {
+      callback(new ApiError(400, "Not allowed by CORS"))
+    }
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization"],
 };
@@ -31,23 +38,12 @@ import healthCheckRouter from "./routes/healthcheck.route.js";
 import UserRouter from "./routes/user.route.js";
 import wellKnownRouter from "./routes/well-know.route.js";
 import { ApiResponse } from "./utils/apiResponse.js";
+import { ApiError } from "./utils/apiError.js";
 
 app.use("/api/v1/healthcheck", healthCheckRouter);
 app.use("/api/v1/users", UserRouter);
 app.use("/.well-known", wellKnownRouter);
 
 app.use(errorHandler);
-
-app.use("/", (_, res) => {
-  res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        "Welcome to the Authentication System API",
-        "Built with ❤️"
-      )
-    );
-});
 
 export { app };
