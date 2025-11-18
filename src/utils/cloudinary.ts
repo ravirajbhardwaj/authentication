@@ -1,10 +1,10 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
-import logger from "../logger/wiston.logger.js";
-import { ApiError } from "../utils/apiError.js";
+import { ApiError } from "./apiError.js";
 import dotenv from "dotenv";
+import { logger } from "../logger/pino.logger";
 
-dotenv.config()
+dotenv.config();
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -12,7 +12,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const uploadOnCloudinary = async localFilePath => {
+const uploadOnCloudinary = async (localFilePath: string) => {
   try {
     if (!localFilePath) return null;
 
@@ -25,7 +25,7 @@ const uploadOnCloudinary = async localFilePath => {
     return response;
   } catch (error) {
     fs.unlinkSync(localFilePath);
-    throw new ApiError(400, "Failed to upload on cloudinary", error);
+    throw new ApiError(400, "Failed to upload on cloudinary");
   }
 };
 
