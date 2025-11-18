@@ -1,32 +1,38 @@
 import Mailgen from "mailgen";
 import nodemailer from "nodemailer";
-import logger from "../logger/wiston.logger.js";
+import { logger } from "../logger/pino.logger";
 
+interface Options {
+  email: string,
+  subject: string,
+  mailgenContent: Mailgen.Content,
+}
 /**
- *
+ * Sends an email using Mailgen and Nodemailer.
  * @param {{email: string; subject: string; mailgenContent: Mailgen.Content; }} options
  */
-const sendMail = async options => {
+const sendMail = async (options: Options) => {
   const mailGenerator = new Mailgen({
     theme: "default",
     product: {
       name: "AuthAPI",
-      link: "https://127.0.1.1:8080",
+      link: process.env.CLIENT_URL || "https://127.0.1.1:8080",
     },
   });
 
-  const emailTextual = mailGenerator.generate(options.mailgenContent);
+  const emailTextual = mailGenerator.generate(options?.mailgenContent);
   const emailHtml = mailGenerator.generate(options.mailgenContent);
 
   const transporter = nodemailer.createTransport({
-    host: process.env.MAILTRAP_SMTP_HOST,
-    port: process.env.MAILTRAP_SMTP_PORT,
+    host: process.env.MAILTRAP_SMTP_HOST || "",
+    port: parseInt(process.env.MAILTRAP_SMTP_PORT || "587", 10),
     secure: false, // true for 465, false for other ports
     auth: {
       user: process.env.MAILTRAP_SMTP_USER,
       pass: process.env.MAILTRAP_SMTP_PASS,
     },
-  });
+  } as any
+  );
 
   const mail = {
     from: "mail",
@@ -40,13 +46,12 @@ const sendMail = async options => {
     await transporter.sendMail(mail);
   } catch (error) {
     logger.error(
-      "Failed to send email. Please verify your MAILTRAP environment variables",
-      { error: error.message }
+      `Failed to send email. Please verify your MAILTRAP environment variables ${error}`
     );
   }
 };
 
-const emailVerificationMailgenContent = (username, verificationUrl) => {
+const emailVerificationMailgenContent = (username: string, verificationUrl: string) => {
   return {
     body: {
       name: username,
@@ -66,7 +71,7 @@ const emailVerificationMailgenContent = (username, verificationUrl) => {
   };
 };
 
-const forgotPasswordMailgenContent = (username, passwordResetUrl) => {
+const forgotPasswordMailgenContent = (username: string, passwordResetUrl: string) => {
   return {
     body: {
       name: username,
