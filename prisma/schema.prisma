@@ -1,0 +1,46 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  engineType          = "client"
+  importFileExtension = ""
+  moduleFormat        = "esm"
+  runtime             = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum LoginType {
+  GOOGLE
+  EMAIL
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+
+  fullname                String    @db.VarChar(20)
+  username                String    @unique(sort: Asc) @db.VarChar(12)
+  email                   String    @unique(sort: Asc)
+  password                String    @db.Text
+  avatar                  String?
+  role                    Role      @default(USER)
+  loginType               LoginType @default(EMAIL)
+  refreshToken            String?   @unique @db.Text
+  forgotPasswordToken     String?   @db.Text
+  forgotPasswordExpiry    DateTime?
+  isEmailVerified         Boolean   @default(false)
+  emailVerificationToken  String?   @db.Text
+  emailVerificationExpiry DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@map("users")
+}
+-
