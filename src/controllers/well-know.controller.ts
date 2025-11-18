@@ -1,4 +1,4 @@
-import { asyncHandler } from "../utils/asyncHandler.js";
+import asyncHandler from "../utils/asyncHandler";
 import fs from "fs";
 import path from "path";
 import { importSPKI, exportJWK } from "jose";
@@ -69,7 +69,7 @@ const exposePublicKeys = asyncHandler(async (_, res) => {
   const spki = fs.readFileSync(PublicKeyPath, {
     encoding: "utf-8",
   });
-  
+
   const PublicKey = await importSPKI(spki, "RS256");
 
   const publicKey = await exportJWK(PublicKey);
