@@ -9,7 +9,5 @@ dotenv.config({
 const PORT = Number(process.env.PORT) || 8080;
 
 app.listen(PORT, () =>
-  logger.info(
-    `Server is running at: ${process.env.SERVER_URL}`
-  )
+  logger.info(`Server is running at: ${process.env.SERVER_URL}`)
 );

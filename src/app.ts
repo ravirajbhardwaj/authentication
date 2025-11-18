@@ -5,14 +5,14 @@ import path from "path";
 
 const app = express();
 
-const allowsOrigins = [process.env.CLIENT_URL, "http://localhost:5173"]
+const allowsOrigins = [process.env.CLIENT_URL, "http://localhost:5173"];
 
 const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowsOrigins.includes(origin)) {
-      callback(null, true)
+      callback(null, true);
     } else {
-      callback(new ApiError(400, "Not allowed by CORS"))
+      callback(new ApiError(400, "Not allowed by CORS"));
     }
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
