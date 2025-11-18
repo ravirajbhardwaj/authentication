@@ -3,7 +3,7 @@ import fs from "fs";
 import { ApiError } from "../utils/apiError.js";
 import path from "path";
 
-const generateAccessAndRefreshTokens = async payload => {
+const generateAccessAndRefreshTokens = async (payload: any) => {
   try {
     const __dirname = path.resolve();
     const PrivateKeyPath = path.join(__dirname, "secrets/private.pem");
@@ -21,14 +21,14 @@ const generateAccessAndRefreshTokens = async payload => {
     const accessToken = await new SignJWT(basePayload)
       .setProtectedHeader({ alg: "RS256" })
       .setIssuedAt(Math.floor(Date.now() / 1000))
-      .setIssuer(process.env.DOMAIN)
+      .setIssuer(process.env.DOMAIN || "")
       .setExpirationTime("15m")
       .sign(PrivateKey);
 
     const refreshToken = await new SignJWT(basePayload)
       .setProtectedHeader({ alg: "RS256" })
       .setIssuedAt(Math.floor(Date.now() / 1000))
-      .setIssuer(process.env.DOMAIN)
+      .setIssuer(process.env.DOMAIN || "")
       .setExpirationTime("24h")
       .sign(PrivateKey);
 
@@ -36,8 +36,7 @@ const generateAccessAndRefreshTokens = async payload => {
   } catch (error) {
     throw new ApiError(
       500,
-      "An error occurred while generating the access and refresh tokens.",
-      error.message
+      "An error occurred while generating the access and refresh tokens."
     );
   }
 };
