@@ -1,32 +1,37 @@
+# Node modules
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+
+# Prisma
+prisma/dev.db
+prisma/*.sqlite
+generated/
+*.db-journal
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
 
-# Dependencies
-node_modules
-.pnp
-.pnp.js
+# OS-specific
+.DS_Store
+Thumbs.db
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# IDEs
+.vscode/
+.idea/
 
-# dotenv environment variables file
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# ignore data
-db_data
+# Typescript cache
+*.tsbuildinfo
 
 # ignore secrets
 secrets/*
+# Generated Prisma Client
+/src/generated/prisma
