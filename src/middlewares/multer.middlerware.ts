@@ -1,6 +1,6 @@
 import multer from "multer";
 import { randomBytes } from "crypto";
-import { ApiError } from "../utils/apiError.js";
+import { ApiError } from "../utils/apiError";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
