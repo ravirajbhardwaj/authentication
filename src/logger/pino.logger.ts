@@ -1,6 +1,6 @@
 import pino, { Logger, stdTimeFunctions } from "pino";
 import type { Request, Response } from "express";
-import { ApiError } from "../utils/ApiError";
+import { ApiError } from "../utils/apiError";
 
 const IS_DEV = process.env.NODE_ENV === "development";
 const LOG_LEVEL = IS_DEV ? "debug" : "info";
