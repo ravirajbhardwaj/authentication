@@ -33,12 +33,11 @@ app.use(
 );
 
 // import all routes
-import { errorHandler } from "./middlewares/error.middlerware.js";
-import healthCheckRouter from "./routes/healthcheck.route.js";
-import UserRouter from "./routes/user.route.js";
-import wellKnownRouter from "./routes/well-know.route.js";
-import { ApiResponse } from "./utils/apiResponse.js";
-import { ApiError } from "./utils/apiError.js";
+import healthCheckRouter from "./routes/healthcheck.route";
+import UserRouter from "./routes/user.route";
+import wellKnownRouter from "./routes/well-know.route";
+import { errorHandler } from "./middlewares/error.middlerware";
+import { ApiError } from "./utils/apiError";
 
 app.use("/api/v1/healthcheck", healthCheckRouter);
 app.use("/api/v1/users", UserRouter);

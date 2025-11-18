@@ -12,23 +12,14 @@ import {
   forgotPasswordRequest,
   resetForgottenPassword,
   assignRole,
-} from "../controllers/user.controller.js";
-import {
-  userAssignRoleValidator,
-  userChangeCurrentPasswordValidator,
-  userForgotPasswordValidator,
-  userLoginValidator,
-  userRegisterValidator,
-  userResetPasswordValidator,
-} from "../validators/auth.validator.js";
-import { validate } from "../validators/validate.js";
-import { upload } from "../middlewares/multer.middlerware.js";
+} from "../controllers/user.controller";
+import { upload } from "../middlewares/multer.middlerware";
 import {
   verifyAccessToken,
   verifyPermission,
   verifyRefreshToken,
-} from "../middlewares/auth.middlewares.js";
-import { UserRolesEnum } from "../constants.js";
+} from "../middlewares/auth.middlewares";
+import { UserRolesEnum } from "../constants";
 
 const router = Router();
 
@@ -37,11 +28,9 @@ router
   .route("/register")
   .post(
     upload.single("avatar"),
-    userRegisterValidator(),
-    validate,
     registerUser
   );
-router.route("/login").post(userLoginValidator(), validate, loginUser);
+router.route("/login").post(loginUser);
 router.route("/verify-email/:verificationToken").get(verifyEmail);
 
 // secure routes
@@ -58,16 +47,14 @@ router
 
 router
   .route("/forgot-password")
-  .post(userForgotPasswordValidator(), validate, forgotPasswordRequest);
+  .post(forgotPasswordRequest);
 router
   .route("/reset-password/:resetToken")
-  .post(userResetPasswordValidator(), validate, resetForgottenPassword);
+  .post(resetForgottenPassword);
 router
   .route("/change-password")
   .post(
     verifyAccessToken,
-    userChangeCurrentPasswordValidator(),
-    validate,
     changeCurrentPassword
   );
 
@@ -75,9 +62,7 @@ router
   .route("/assign-role/:userId")
   .post(
     verifyAccessToken,
-    verifyPermission(UserRolesEnum.ADMIN),
-    userAssignRoleValidator(),
-    validate,
+    verifyPermission([UserRolesEnum.ADMIN]),
     assignRole
   );
 
