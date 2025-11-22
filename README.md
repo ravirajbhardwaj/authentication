@@ -1,10 +1,6 @@
-# 🔐 Robust Authentication System
+# 🔐 Robust Authentication System ![GitHub Repo stars](https://img.shields.io/github/stars/ravirajbhardwaj/authentication?style=social) 
 
 A modern authentication system with features like secure password handling, email support, file uploads, and middleware-protected routes.
-
-![GitHub Repo stars](https://img.shields.io/github/stars/ravirajbhardwaj/authentication?style=social) 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
 
 ## ⚙️ Tech Stack
 
@@ -130,7 +126,7 @@ Import the collection into Postman and set the environment variables like `serve
 
 ---
 
-## ✨ Author
+## ✨ Author & License [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [Ravi Raj Bhardwaj](http://x.com/ravirajbhrdwaj)
 
