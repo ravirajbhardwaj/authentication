@@ -14,17 +14,16 @@ const registerSchema = z.object({
     .string()
     .nonempty()
     .max(12, { message: "Fullname must be at most 12 characters long" }),
-  email: z
-    .string()
-    .nonempty()
-    .email({ message: "Invalid email address" }),
-
-  password: strongPassword,
-
   fullname: z
     .string()
     .min(6, { message: "Fullname must be at least 6 characters long" })
     .max(15, { message: "Fullname must be at most 15 characters long" }),
+  email: z
+    .string()
+    .nonempty()
+    .email({ message: "Invalid email address" }),
+  password: strongPassword,
+  role: z.enum(['ADMIN', 'USER'])
 });
 
 const loginSchema = registerSchema
@@ -32,9 +31,6 @@ const loginSchema = registerSchema
     email: true,
     password: true,
   })
-  .extend({
-    rememberMe: z.boolean().default(false),
-  });
 
 const emailSchema = registerSchema.pick({
   email: true,
