@@ -105,13 +105,13 @@ mkdir secrets
    Development mode
 
    ```bash
-   npm run dev
+   pnpm run dev
    ```
 
    Production mode
 
    ```bash
-   npm start
+   pnpm start
    ```
 
 ---
