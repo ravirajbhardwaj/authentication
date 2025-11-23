@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { CookieOptions, Request, Response } from "express";
 import {
   USER_COOKIE_TOKEN_EXPIRY,
   UserLoginType,
@@ -15,11 +15,13 @@ import {
 } from "../utils/mail.js";
 import { uploadOnCloudinary } from "../utils/cloudinary";
 import { generateAccessAndRefreshTokens } from "../services/token.service";
-import { generateTemporaryToken, hashPassword, passwordMatch } from "../utils/helper";
+import { createHash, generateTemporaryToken, hashPassword, passwordMatch } from "../utils/helper";
 import { logger } from "../logger/pino.logger";
 
 import { prisma } from "../db/database"
 import { User } from "../generated/prisma/client";
+import { handleZodError } from "../validators/handleZodError";
+import { validateEmail, validateLogin, validateRegister } from "../validators/auth.validator";
 
 export const sanitizeUser = (user: User) => {
   const {
@@ -37,9 +39,8 @@ export const sanitizeUser = (user: User) => {
 
 const registerUser = asyncHandler(async (req: Request, res: Response) => {
   // Retrieves the user info from the request body.
-  const { fullname, username, email, password, role } = req.body;
-
-  logger.info("Registration attempt" + { email, ip: req.ip });
+  const { fullname, username, email, password, role } = handleZodError(validateRegister(req.body));
+  logger.info(`Registration attempt: EMAIL: ${email}, IP: ${req.ip}`);
 
   // Check if a user with the provided email already exists in the database.
   const existedUser = await prisma.user.findUnique({ where: { email } });
@@ -53,7 +54,7 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
     try {
       const uploaded = await uploadOnCloudinary(req.file.path);
       avatarUrl = uploaded?.secure_url;
-      logger.info("Avatar uploaded successfully" + { email, avatarUrl });
+      logger.info(`Avatar uploaded successfully: EMAIL: ${email}, URL: ${avatarUrl}`);
     } catch (err: any) {
       logger.warn(`Avatar upload failed for ${email} due to ${err.message}`);
     }
@@ -88,13 +89,8 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
     ),
   });
 
-  logger.info("Verification email sent" + { email, userId: user.id, ip: req.ip });
-
-  logger.info("User registered successfully" + {
-    email,
-    userId: user.id,
-    ip: req.ip,
-  });
+  logger.info(`Verification email sent - Email: ${email}, UserID: ${user.id}, IP: ${req.ip}`);
+  logger.info(`User registered successfully - Email: ${email}, UserID: ${user.id}, IP: ${req.ip}`);
 
   const safeUser = sanitizeUser(user);
 
@@ -112,32 +108,43 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
 
 const loginUser = asyncHandler(async (req: Request, res: Response) => {
   // Retrieves the user information from the request body.
-  const { username, email, password } = req.body;
-
-  // Validates the provided user credentials.
-  if (!(username || email)) {
-    throw new ApiError(400, "Please provide either a username or email");
-  }
-
-  if (!password) {
-    throw new ApiError(400, "Password is required");
-  }
+  const { email, password } = handleZodError(validateLogin(req.body));
+  logger.info(`Login attempt: EMAIL: ${email}, IP: ${req.ip}`);
 
   // Checks if the user already exists in the database.
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      password: true,
+      role: true,
+      loginType: true,
+      isEmailVerified: true,
+      avatar: true,
+      fullname: true,
+    }
+  });
 
   if (!user) {
+    logger.warn(`Login failed - User not found: ${email}, IP: ${req.ip}`);
     throw new ApiError(404, "User does not exist");
   }
 
+  // Check if email is verified
+  if (!user.isEmailVerified) {
+    logger.warn(`Login failed - Email not verified: ${email}, IP: ${req.ip}`);
+    throw new ApiError(403, "Please verify your email before logging in");
+  }
+
+  // Check login type compatibility
   if (user.loginType !== UserLoginType.EMAIL) {
+    logger.warn(`Login failed - Wrong login type: ${email}, Type: ${user.loginType}, IP: ${req.ip}`);
     throw new ApiError(
       400,
-      "You have previously registered using " +
-      user.loginType?.toLowerCase() +
-      ". Please use the " +
-      user.loginType?.toLowerCase() +
-      " login option to access your account."
+      `You have previously registered using ${user.loginType?.toLowerCase()}. 
+      Please use the ${user.loginType?.toLowerCase()} login option to access your account.`
     );
   }
 
@@ -148,7 +155,7 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(401, "Invalid user credentials");
   }
 
-  // Generates access and refresh tokens for the authenticated user.
+  // Generate access and refresh tokens
   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens({
     _id: user.id,
     username: user.username,
@@ -156,31 +163,34 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
     role: user.role,
   });
 
-  user.refreshToken = refreshToken;
+  // Update refresh token in database
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { refreshToken },
+  });
 
-  await prisma.user.save({ validateBeforeSave: false });
+  // Sanitize user data before sending
+  const safeUser = sanitizeUser(user as User);
 
-  // Retrieves the user document, excluding sensitive fields like password and refreshToken.
-  const loggedInUser = await prisma.user.findById(user._id).select(
-    "-password -emailVerificationToken -emailVerificationExpiry"
-  );
+  logger.info(`User logged in successfully - Email: ${email}, UserID: ${user.id}, IP: ${req.ip}`);
 
-  // Sends the access token, refresh token, and user information in the response, setting the tokens as HTTP-only cookies.
-  const options = {
+  // Set cookie options
+  const cookieOptions: CookieOptions = {
     httpOnly: true,
-    secure: true,
-    sameSite: "Strict",
+    secure: process.env.NODE_ENV === "production", // Only secure in production
+    sameSite: "strict",
     maxAge: USER_COOKIE_TOKEN_EXPIRY,
   };
 
+  // Send response with tokens and user data
   return res
     .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
     .json(
       new ApiResponse(
         200,
-        { user: loggedInUser, accessToken, refreshToken },
+        { user: safeUser, accessToken, refreshToken },
         "Logged in successfully"
       )
     );
@@ -188,73 +198,98 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
 
 const logoutUser = asyncHandler(async (req: Request, res: Response) => {
   // A logout request is received from an authenticated user
-  await prisma.user.findByIdAndUpdate(
-    req.user._id,
-    {
-      $set: {
-        refreshToken: undefined, // Clears the refresh token from the database.
-      },
+  await prisma.user.update({
+    where: { id: (req as any).user._id },
+    data: {
+      refreshToken: undefined,
     },
-    {
-      new: true,
-    }
-  );
+  });
 
   // Clears the `accessToken` and `refreshToken` cookie using the same options.
-  const options = {
+  const cookieOptions: CookieOptions = {
     httpOnly: true,
-    secure: true,
-    sameSite: "Strict",
+    secure: process.env.NODE_ENV === "production", // Only secure in production
+    sameSite: "strict",
     maxAge: 0,
   };
 
   // Sends an appropriate response to the client.
   return res
     .status(200)
-    .clearCookie("accessToken", options)
-    .clearCookie("refreshToken", options)
+    .clearCookie("accessToken", cookieOptions)
+    .clearCookie("refreshToken", cookieOptions)
     .json(new ApiResponse(200, {}, "User logged out"));
 });
 
 const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
   // Retrieves the verification token from the request parameters.
   const verificationToken = req.params.verificationToken;
+  logger.info(`Email verification attempt, IP: ${req.ip}`);
 
   // Validates the provided token.
   if (!verificationToken) {
+    logger.warn(`Email verification failed - Missing token, IP: ${req.ip}`);
     throw new ApiError(400, "Email verification token is missing");
   }
 
   // Generate a hash from the token that we are receiving
-  let hashedToken = crypto
-    .createHash("sha256")
-    .update(verificationToken)
-    .digest("hex");
+  const hashedToken = createHash(verificationToken);
 
   // Searches for a user associated with the token and its expiry date.
-  const user = await prisma.user.findOne({
-    emailVerificationToken: hashedToken,
-    emailVerificationExpiry: { $gt: Date.now() },
+  const user = await prisma.user.findFirst({
+    where: {
+      emailVerificationToken: hashedToken,
+      emailVerificationExpiry: {
+        gt: new Date(),
+      },
+    },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      isEmailVerified: true,
+    },
   });
 
+  // Handle invalid or expired token
   if (!user) {
-    throw new ApiError(489, "Token is invalid or expired");
+    logger.warn(`Email verification failed - Invalid or expired token, IP: ${req.ip}`);
+    throw new ApiError(400, "Invalid or expired verification token");
   }
 
-  // If a user is found, removes the associated email token and expiry date.
-  user.emailVerificationToken = undefined;
-  user.emailVerificationExpiry = undefined;
+  // Check if email is already verified
+  if (user.isEmailVerified) {
+    logger.info(`Email already verified - Email: ${user.email}, UserID: ${user.id}`);
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, { isEmailVerified: true }, "Email is already verified")
+      );
+  }
 
-  // Marks the user's email as verified by setting `isEmailVerified` to true.
-  user.isEmailVerified = true;
+  // Update user record - mark email as verified and clear verification tokens
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      emailVerificationToken: null,
+      emailVerificationExpiry: null,
+      isEmailVerified: true,
+    },
+  });
 
-  // Saves the updated user information to the database.
-  await prisma.user.save({ validateBeforeSave: false });
+  logger.info(`Email verified successfully - Email: ${user.email}, UserID: ${user.id}, IP: ${req.ip}`);
 
-  // Respond with a success message indicating the user's email has been successfully verified
+
+  // Respond with success message
   return res
     .status(200)
-    .json(new ApiResponse(200, { isEmailVerified: true }, "Email is verified"));
+    .json(
+      new ApiResponse(
+        200,
+        { isEmailVerified: true },
+        "Email verified successfully! You can now log in to your account."
+      )
+    );
 });
 
 const resendEmailVerification = asyncHandler(async (req: Request, res: Response) => {
