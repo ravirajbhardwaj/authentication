@@ -469,7 +469,7 @@ const resetForgottenPassword = asyncHandler(async (req: Request, res: Response) 
   }
 
   // Generate a hash from the token that we are receiving
-  let hashedToken = createHash(resetToken)
+  let hashedToken = createHash((resetToken as string))
 
   // check token is valid or not expire
   const user = await prisma.user.findFirst({
