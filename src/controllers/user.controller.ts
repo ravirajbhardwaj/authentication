@@ -501,7 +501,7 @@ const resetForgottenPassword = asyncHandler(async (req: Request, res: Response) 
     },
   });
 
-  logger.info(`Password reset successfully - Email: ${user.email}, UserID: ${user.id}, IP: ${req.ip}`);
+  logger.info(`Password reset successfully - UserID: ${user.id}, IP: ${req.ip}`);
 
   // send success status
   return res
