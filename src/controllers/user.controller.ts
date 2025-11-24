@@ -21,7 +21,7 @@ import { logger } from "../logger/pino.logger";
 import { prisma } from "../db/database"
 import { User } from "../generated/prisma/client";
 import { handleZodError } from "../validators/handleZodError";
-import { validateEmail, validateLogin, validateRegister } from "../validators/auth.validator";
+import { validateChangePassword, validateEmail, validateLogin, validateRegister, validateResetPassword } from "../validators/auth.validator";
 
 export const sanitizeUser = (user: User) => {
   const {
@@ -293,23 +293,43 @@ const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const resendEmailVerification = asyncHandler(async (req: Request, res: Response) => {
-  // A resendEmailVerification request is received from an authenticated user
-  const user = await prisma.user.findById(req.user._id);
+  // A resendEmailVerification request is received from an authenticated user'
+  const userId = (req as any).user._id;
+  logger.info(`Resend email verification attempt - UserID: ${userId}, IP: ${req.ip}`);
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      isEmailVerified: true,
+    },
+  });
+
+  // Check if the user exist
+  if (!user) {
+    logger.warn(`Resend verification failed - User not found: USERID: ${userId}, IP: ${req.ip}`);
+    throw new ApiError(404, "User does not exist");
+  }
 
   // Check if the user's email is already verified
-  if (user.isEmailVerified) {
-    throw new ApiResponse(400, "User email is already verified");
+  if ((user as User).isEmailVerified) {
+    logger.info(`Resend verification aborted - Email already verified: ${user.email}, UserID: ${user.id}`);
+    throw new ApiError(400, "User email is already verified");
   }
 
   // Generate a verification token and its expiry time
-  const { unHashedToken, hashedToken, tokenExpiry } =
-    user.generateTemporaryToken();
+  const { unHashedToken, hashedToken, tokenExpiry } = generateTemporaryToken();
 
   // Save the generated verification token and its expiry time in the database
-  user.emailVerificationToken = hashedToken;
-  user.emailVerificationExpiry = tokenExpiry;
-
-  await prisma.user.save({ validateBeforeSave: false });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      emailVerificationToken: hashedToken,
+      emailVerificationExpiry: tokenExpiry,
+    },
+  });
 
   // Send a verification email to the user with a link to verify their email address
   await sendMail({
@@ -321,6 +341,8 @@ const resendEmailVerification = asyncHandler(async (req: Request, res: Response)
     ),
   });
 
+  logger.info(`Verification email resent - Email: ${user.email}, UserID: ${user.id}, IP: ${req.ip}`);
+
   // Respond with a success message indicating that the verification email has been sent successfully.
   return res
     .status(200)
@@ -328,69 +350,92 @@ const resendEmailVerification = asyncHandler(async (req: Request, res: Response)
 });
 
 const refreshAccessToken = asyncHandler(async (req: Request, res: Response) => {
-  // // Retrieves the authenticated user from the request
-  // const user = req.user;
+  // Retrieves the authenticated user from the request
+  const userId = (req as any).user._id;
+  logger.info(`Refresh access token attempt - UserID: ${userId}, IP: ${req.ip}`);
 
-  // // Generates new access and refresh tokens for the user
-  // const { accessToken, refreshToken: newRefreshToken } =
-  //   await generateAccessAndRefreshTokens(user._id);
+  // Fetch fresh user data from DB
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      role: true,
+    },
+  });
 
-  // const existedUser = await prisma.user.findById(user._id).select(
-  //   "-password -emailVerificationToken -emailVerificationExpiry"
-  // );
+  if (!dbUser) {
+    logger.warn(`Refresh token failed - User not found: UserID: ${userId}, IP: ${req.ip}`);
+    throw new ApiError(404, "User does not exist");
+  }
 
-  // if (!existedUser) {
-  //   throw new ApiError(404, "User does not exist");
-  // }
+  // Generates new access and refresh tokens for the user
+  const { accessToken, refreshToken: newRefreshToken } = await generateAccessAndRefreshTokens({
+    _id: dbUser.id,
+    username: dbUser.username,
+    email: dbUser.email,
+    role: dbUser.role,
+  });
 
-  // // Updates the user's refresh token in the database
-  // existedUser.refreshToken = newRefreshToken;
-  // await existedUser.save({ validateBeforeSave: false });
 
-  // // Sends the access token, refresh token, and user information in the response, setting the tokens as HTTP-only cookies.
-  // const options = {
-  //   httpOnly: true,
-  //   secure: true,
-  //   sameSite: "Strict",
-  //   maxAge: USER_COOKIE_TOKEN_EXPIRY,
-  // };
+  // Updates the user's refresh token in the database
+  await prisma.user.update({
+    where: { id: dbUser.id },
+    data: { refreshToken: newRefreshToken },
+  });
 
-  // return res
-  //   .status(200)
-  //   .cookie("accessToken", accessToken, options)
-  //   .cookie("refreshToken", newRefreshToken, options)
-  //   .json(
-  //     new ApiResponse(
-  //       200,
-  //       { accessToken, newRefreshToken },
-  //       "Access token refreshed"
-  //     )
-  //   );
+  logger.info(`Access & refresh tokens refreshed - UserID: ${dbUser.id}, IP: ${req.ip}`);
+
+  // Set cookie options
+  const cookieOptions: CookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production", // Only secure in production
+    sameSite: "strict",
+    maxAge: USER_COOKIE_TOKEN_EXPIRY,
+  };
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", newRefreshToken, cookieOptions)
+    .json(
+      new ApiResponse(
+        200,
+        { accessToken, newRefreshToken },
+        "Access token refreshed"
+      )
+    );
 });
 
 const forgotPasswordRequest = asyncHandler(async (req: Request, res: Response) => {
   // get email from body
-  const { email } = req.body;
+  const { email } = handleZodError(validateEmail(req.body));
+  logger.info(`Forgot password request received - Email: ${email}, IP: ${req.ip}`);
 
   // validate email and check email exist in db
   if (!email) {
+    logger.warn(`Forgot password failed - Missing email, IP: ${req.ip}`);
     throw new ApiError(400, "Email is required");
   }
 
-  const user = await prisma.user.findOne({ email });
+  const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) {
+    logger.warn(`Forgot password failed - User not found for email: ${email}, IP: ${req.ip}`);
     throw new ApiError(422, "User does not exist");
   }
 
   // Generate forgot and reset password token and expiry
-  const { unHashedToken, hashedToken, tokenExpiry } =
-    user.generateTemporaryToken();
+  const { unHashedToken, hashedToken, tokenExpiry } = generateTemporaryToken();
 
-  user.forgotPasswordToken = hashedToken;
-  user.forgotPasswordExpiry = tokenExpiry;
-
-  await prisma.user.save({ validateBeforeSave: false });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      forgotPasswordToken: hashedToken,
+      forgotPasswordExpiry: tokenExpiry,
+    },
+  });
 
   // Send a verification email to the user with a link to verify their email address
   sendMail({
@@ -402,6 +447,8 @@ const forgotPasswordRequest = asyncHandler(async (req: Request, res: Response) =
     ),
   });
 
+  logger.info(`Forgot password email sent - Email: ${user.email}, UserID: ${user.id}, IP: ${req.ip}`);
+
   // Respond with a success message indicating that the verification email has been sent successfully.
   return res
     .status(200)
@@ -411,36 +458,50 @@ const forgotPasswordRequest = asyncHandler(async (req: Request, res: Response) =
 const resetForgottenPassword = asyncHandler(async (req: Request, res: Response) => {
   // exterct refresh Token from params and get newPasswrod from req body
   const resetToken = req.params.resetToken;
-  const { newPassword } = req.body;
+  const { password } = handleZodError(validateResetPassword(req.body));
+
+  logger.info(`Reset forgotten password attempt - IP: ${req.ip}`);
 
   // validate resetToken and newPassword
-  if (!resetToken && !newPassword) {
+  if (!resetToken && !password) {
+    logger.warn(`Reset password failed - Missing token or password, IP: ${req.ip}`);
     throw new ApiError(400, "Invalid reset token and new Password");
   }
 
   // Generate a hash from the token that we are receiving
-  let hashedToken = crypto
-    .createHash("sha256")
-    .update(resetToken)
-    .digest("hex");
+  let hashedToken = createHash(resetToken)
 
   // check token is valid or not expire
-  const user = await prisma.user.findOne({
-    forgotPasswordToken: hashedToken,
-    forgotPasswordExpiry: { $gt: Date.now() },
+  const user = await prisma.user.findFirst({
+    where: {
+      forgotPasswordToken: hashedToken,
+      forgotPasswordExpiry: {
+        gt: new Date(),
+      },
+    },
+    select: {
+      id: true,
+    },
   });
 
   if (!user) {
+    logger.warn(`Reset password failed - Token invalid or expired, IP: ${req.ip}`);
     throw new ApiError(489, "Token is invalid or expired");
   }
 
-  // If a user is found, removes the associated forgot password token and expiry date
-  user.forgotPasswordToken = undefined;
-  user.forgotPasswordExpiry = undefined;
+  // If a user is found create new hashedPassword, removes the associated forgot password token and expiry date
+  const hashedPassword = await hashPassword(password);
 
-  // set new password and save
-  user.password = newPassword;
-  await prisma.user.save({ validateBeforeSave: false });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      password: hashedPassword,
+      forgotPasswordToken: null,
+      forgotPasswordExpiry: null,
+    },
+  });
+
+  logger.info(`Password reset successfully - Email: ${user.email}, UserID: ${user.id}, IP: ${req.ip}`);
 
   // send success status
   return res
@@ -450,25 +511,44 @@ const resetForgottenPassword = asyncHandler(async (req: Request, res: Response) 
 
 const changeCurrentPassword = asyncHandler(async (req: Request, res: Response) => {
   // get data from request body
-  const { oldPassword, newPassword } = req.body;
+  const { currentPassword, newPassword } = handleZodError(validateChangePassword(req.body));
+  const userId = (req as any).user._id;
+
+  logger.info(`Change password attempt - UserID: ${userId}, IP: ${req.ip}`);
 
   // Validates the provided user old and new Password.
-  if (!oldPassword || !newPassword) {
-    throw new ApiError(400, "Old Password and New Password is required");
+  if (!currentPassword || !newPassword) {
+    logger.warn(`Change password failed - Missing fields - UserID: ${userId}, IP: ${req.ip}`);
+    throw new ApiError(400, "Current Password and New Password is required");
   }
 
-  const user = await prisma.user.findById(req.user._id);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, password: true },
+  });
+
+  if (!user) {
+    logger.warn(`Change password failed - User not found - UserID: ${userId}, IP: ${req.ip}`);
+    throw new ApiError(404, "User does not exist");
+  }
 
   // Compares the old password with the hashed password stored in the database.
-  const isPassowrdMatch = user.isPasswordCorrect(oldPassword);
+  const isPassowrdMatch = passwordMatch(currentPassword, user.password);
 
   if (!isPassowrdMatch) {
-    throw new ApiError(400, "Invalid old password");
+    logger.warn(`Change password failed - Invalid current password - UserID: ${userId}, IP: ${req.ip}`);
+    throw new ApiError(400, "Invalid current password");
   }
 
   // update user password to newPassword and save
-  user.password = newPassword;
-  await prisma.user.save({ validateBeforeSave: false });
+  const hashedNewPassword = await hashPassword(newPassword);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hashedNewPassword },
+  });
+
+  logger.info(`Password changed successfully - UserID: ${user.id}, IP: ${req.ip}`);
 
   // send success status your password is changed
   return res
@@ -480,16 +560,24 @@ const assignRole = asyncHandler(async (req: Request, res: Response) => {
   // get userId from params and role from body
   const userId = req.params.userId;
   const { role } = req.body;
+  const performedBy = (req as any).user?._id;
+
+  logger.info(`Assign role attempt - TargetUserID: ${userId}, NewRole: ${role}, PerformedBy: ${performedBy}, IP: ${req.ip}`);
 
   // find user
-  const user = await prisma.user.findById(userId);
+  const user = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!user) {
+    logger.warn(`Assign role failed - User not found - TargetUserID: ${userId}, IP: ${req.ip}`);
     throw new ApiError(404, "User does not exist");
   }
 
-  user.role = role;
-  await prisma.user.save({ validateBeforeSave: false });
+  await prisma.user.update({
+    where: { id: userId },
+    data: { role },
+  });
+
+  logger.info(`Role updated for user - TargetUserID: ${userId}, NewRole: ${role}, PerformedBy: ${performedBy}, IP: ${req.ip}`);
 
   return res
     .status(200)
@@ -498,9 +586,33 @@ const assignRole = asyncHandler(async (req: Request, res: Response) => {
 
 const getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
   // Retrieves the currently authenticated user's information from the request object.
-  const user = await prisma.user.findById(req.user._id).select(
-    "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
-  );
+  const userId = (req as any).user._id;
+  logger.info(`Get current user request - UserID: ${userId}, IP: ${req.ip}`);
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      fullname: true,
+      avatar: true,
+      role: true,
+      loginType: true,
+      isEmailVerified: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  })
+
+  if (!user) {
+    logger.warn(`Get current user failed - User not found - UserID: ${userId}, IP: ${req.ip}`);
+    throw new ApiError(404, "User does not exist");
+  }
+
+  logger.info(`Current user fetched successfully - UserID: ${userId}, IP: ${req.ip}`);
 
   // The `req.user` is populated by the authentication middleware after verifying the user's token.
   return res
@@ -508,40 +620,48 @@ const getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
     .json(new ApiResponse(200, { user }, "Current user fetched successfully"));
 });
 
-const handleSocialLogin = asyncHandler(async (req: Request, res: Response) => {
-  //
-});
-
 const updateUserAvatar = asyncHandler(async (req: Request, res: Response) => {
   // Retrieves the user image from the request file.
   const avatar = req.file;
   const avatarLocalPath = avatar?.path;
+  const userId = (req as any).user._id;
+  logger.info(`Update avatar attempt - UserID: ${userId}, IP: ${req.ip}`);
 
-  // Validate that an avatar file was uploaded
   if (!avatarLocalPath) {
+    logger.warn(`Update avatar failed - Missing file - UserID: ${userId}, IP: ${req.ip}`);
     throw new ApiError(400, "Avatar image is required");
   }
 
-  // Upload the avatar image to Cloudinary and get the URL
   const cloudinaryAvatar = await uploadOnCloudinary(avatarLocalPath);
+  const avatarUrl = cloudinaryAvatar?.secure_url ?? cloudinaryAvatar?.url;
 
-  // Find the user in the database by their ID and update the avatar field with the new Cloudinary URL
-  let updatedUser = await prisma.user.findByIdAndUpdate(
-    req.user._id,
-    {
-      $set: {
-        avatar: cloudinaryAvatar.url,
-      },
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { avatar: avatarUrl },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      fullname: true,
+      avatar: true,
+      role: true,
+      isEmailVerified: true,
+      createdAt: true,
+      updatedAt: true,
     },
-    { new: true }
-  ).select(
-    "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
-  );
+  });
 
-  // Send the updated user information in the response
+  logger.info(`Avatar updated successfully - UserID: ${userId}, AvatarURL: ${avatarUrl}, IP: ${req.ip}`);
   return res
     .status(201)
-    .json(new ApiResponse(200, updatedUser, "Avatar updated successfully"));
+    .json(new ApiResponse(
+      200, { user: updatedUser },
+      "Avatar updated successfully"
+    ));
+});
+
+const handleSocialLogin = asyncHandler(async (req: Request, res: Response) => {
+  //
 });
 
 export {
